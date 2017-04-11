@@ -1,0 +1,41 @@
+language: go
+
+go:
+  - 1.x
+
+addons:
+  apt:
+    packages:
+    - upx-ucl
+
+before_install:
+  - go get github.com/mitchellh/gox
+  - go get github.com/inconshreveable/mousetrap
+
+script:
+  - >
+    go run main.go run
+    --task-definition ecs-run-task-test
+    --cluster app-cluster-Cluster-1C2I18JXK9QNM
+    --container ecs-run-task-test
+    --command "cat /etc/lsb-release"
+    | tee out.log
+  - diff out.log ci/expected-output.txt
+
+after_success:
+  - gox -arch="amd64" -os="windows linux darwin"
+  - ls -lhR
+  - upx ecs-run-task_*
+
+deploy:
+  provider: releases
+  api_key:
+    secure: qQguSJ19olPNY5au01T9WIZQpEOjoOrWatRoxHJWC6rFlIjQsEFOwbr7fWg5ICpH8kWuYkUH+89aE/nUge2qhxF0HHDu6OUu4DdzF1dM75bM5HSLM2845zINwbc8neEHO5MRUIf/Qd4WKpmkGfp1iRphkheox7PgcsGtSvkfhV/dvUj7fdpLh2zCaWS97ClD09PRpXbukZnflOV33uJQUgCuJ9MweGU++NezhH8VbOPHNJ2TbMP8qH23iOgLbj/AF3nUFevEcRCj60Zmnq/GNFYJJvTZ5XIzGnw4/ls5NjyVFcD4YPMmUY98EMWT86XB49iKVVXgK98G+VTU5tajo3ZGRHjmfaI3tCfIIXQbNe0cfv5sCJZB1jESt4ofxkMX/hq3gH70zLWRyMQ/3CRR4EMJsBxUZXoDTzVhiwNJVkvl4BPJkwA7J3UJDp24PlvSpQ+rLX1sNvQyuqLogLbu90V+QKGiZerWtZ6E/dOkNgvia1rtqo2XvqaxPyMIBgXeb7i11NFgJJIAQPGcCOtTlCLoPowT8Svx4neyvl5WSx8ys9sqvMacwai3uZpQAtu3vD70g83SFiGGkpxiMPjK/KdzlV+KkHeQaksEporZolav4qVk7VRdze2GEXcF3uMvLdAlddJJw+UlmWgupcyKkwArzUC0eg4mA+6N3P2t7Sg=
+  skip_cleanup: true
+  file:
+    - ecs-run-task_linux_amd64
+    - ecs-run-task_darwin_amd64
+    - ecs-run-task_windows_amd64.exe
+  on:
+    tags: true
+    repo: glassechidna/ecs-run-task

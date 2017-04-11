@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Parameters:
+  DockerImage:
+    Type: String
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-8d2005e8
+Resources:
+  Task:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Volumes: []
+      Family: ecs-run-task-test
+      ContainerDefinitions:
+        - Name: ecs-run-task-test
+          Image: !Ref DockerImage
+          MemoryReservation: 256
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+                awslogs-group: !Ref LogGroup
+                awslogs-region: !Ref AWS::Region
+                awslogs-stream-prefix: MyCoolPrefix
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+  CiTestPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      Users: [travis-ecs-run-task-ci]
+      PolicyName: AllowTravisToTestEcsRunTask
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Resource: "*"
+            Action:
+              - ecs:RunTask
+              - ecs:DescribeTaskDefinition
+              - logs:DescribeLogStreams
+              - logs:GetLogEvents
+Outputs:
+  LogGroup:
+    Value: !Ref LogGroup
+  TaskDef:
+    Value: !Ref Task
