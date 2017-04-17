@@ -115,8 +115,8 @@ Loop:
 			Cluster: aws.String(cluster),
 		})
 
-		out, _ := json.MarshalIndent(describeTasksOutput, "", "  ")
-		os.Stderr.Write(out)
+		//out, _ := json.MarshalIndent(describeTasksOutput, "", "  ")
+		//os.Stderr.Write(out)
 
 		taskOutput := describeTasksOutput.Tasks[0]
 		container := taskOutput.Containers[0]
