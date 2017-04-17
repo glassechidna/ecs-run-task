@@ -27,8 +27,6 @@ import (
 	"log"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/client"
-	"encoding/json"
-	"os"
 )
 
 var sess client.ConfigProvider
