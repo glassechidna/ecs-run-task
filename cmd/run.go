@@ -64,8 +64,6 @@ type CloudWatchLogConfig struct {
 	StreamPrefix string
 }
 
-// run --task-definition drivetrain-staging-Task-10JMBQAFBFNDL --cluster app-cluster-Cluster-1C2I18JXK9QNM --command "ls -l"
-
 
 func run(taskDefinition, cluster, command, container string) {
 	client := ecs.New(sess)
@@ -100,14 +98,35 @@ func run(taskDefinition, cluster, command, container string) {
 	taskId := taskArn[len(taskArn)-36:]
 	stream := logConfig.StreamPrefix + "/" + container+ "/" + taskId
 
+	log.Printf("started task id: %s\n", taskId)
+
 	cwClient := cloudwatchlogs.New(sess)
 
 Loop:
 	for {
 		// TODO: also need to poll ecs task for errors, e.g. failure to pull image, essential container stopped, etc
 		
-		log.Println("waiting for cwlogs stream to appear...")
 		time.Sleep(1 * time.Second)
+
+		describeTasksOutput, _ := client.DescribeTasks(&ecs.DescribeTasksInput{
+			Tasks: aws.StringSlice([]string{taskId}),
+			Cluster: aws.String(cluster),
+		})
+
+		//out, _ := json.MarshalIndent(describeTasksOutput, "", "  ")
+		//os.Stderr.Write(out)
+
+		taskOutput := describeTasksOutput.Tasks[0]
+		container := taskOutput.Containers[0]
+
+		if *taskOutput.LastStatus == "STOPPED" &&
+			*taskOutput.DesiredStatus == "STOPPED" &&
+			container.ExitCode == nil {
+			log.Fatalf("Task %s stopped (%s) because:\n\n\t%s: %s\n", taskId, *taskOutput.StoppedReason, *container.Name, *container.Reason)
+			//thejson, _ := json.MarshalIndent(taskOutput, "", "  ")
+			//os.Stderr.Write(thejson)
+			//os.Exit(1)
+		}
 
 		streamsOutput, _ := cwClient.DescribeLogStreams(&cloudwatchlogs.DescribeLogStreamsInput{
 			LogGroupName: aws.String(logConfig.Group),
