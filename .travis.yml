@@ -15,7 +15,7 @@ before_install:
 script:
   - >
     go run main.go run
-    --task-definition ecs-run-task-test
+    --task-definition ecs-run-task-test:1
     --cluster app-cluster-Cluster-1C2I18JXK9QNM
     --container ecs-run-task-test
     --command "cat /etc/lsb-release"
