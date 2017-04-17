@@ -27,6 +27,8 @@ import (
 	"log"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/client"
+	"encoding/json"
+	"os"
 )
 
 var sess client.ConfigProvider
@@ -113,8 +115,8 @@ Loop:
 			Cluster: aws.String(cluster),
 		})
 
-		//out, _ := json.MarshalIndent(describeTasksOutput, "", "  ")
-		//os.Stderr.Write(out)
+		out, _ := json.MarshalIndent(describeTasksOutput, "", "  ")
+		os.Stderr.Write(out)
 
 		taskOutput := describeTasksOutput.Tasks[0]
 		container := taskOutput.Containers[0]
@@ -123,9 +125,6 @@ Loop:
 			*taskOutput.DesiredStatus == "STOPPED" &&
 			container.ExitCode == nil {
 			log.Fatalf("Task %s stopped (%s) because:\n\n\t%s: %s\n", taskId, *taskOutput.StoppedReason, *container.Name, *container.Reason)
-			//thejson, _ := json.MarshalIndent(taskOutput, "", "  ")
-			//os.Stderr.Write(thejson)
-			//os.Exit(1)
 		}
 
 		streamsOutput, _ := cwClient.DescribeLogStreams(&cloudwatchlogs.DescribeLogStreamsInput{
