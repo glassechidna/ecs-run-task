@@ -36,6 +36,7 @@ Resources:
             Action:
               - ecs:RunTask
               - ecs:DescribeTaskDefinition
+              - ecs:DescribeTasks
               - logs:DescribeLogStreams
               - logs:GetLogEvents
 Outputs:
