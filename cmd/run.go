@@ -26,10 +26,7 @@ import (
 	"time"
 	"log"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
-	"github.com/aws/aws-sdk-go/aws/client"
 )
-
-var sess client.ConfigProvider
 
 // runCmd represents the run command
 var runCmd = &cobra.Command{
@@ -49,13 +46,13 @@ command override.`,
 			sessOpts.Profile = profile
 		}
 
-		sess, _ = session.NewSessionWithOptions(sessOpts)
+		sess, _ := session.NewSessionWithOptions(sessOpts)
 
 		cluster := cmd.Flag("cluster").Value.String()
 		taskDefinition := cmd.Flag("task-definition").Value.String()
 		container := cmd.Flag("container").Value.String()
 		command := cmd.Flag("command").Value.String()
-		run(taskDefinition, cluster, command, container)
+		run(sess, taskDefinition, cluster, command, container)
 	},
 }
 
@@ -65,7 +62,7 @@ type CloudWatchLogConfig struct {
 }
 
 
-func run(taskDefinition, cluster, command, container string) {
+func run(sess *session.Session, taskDefinition, cluster, command, container string) {
 	client := ecs.New(sess)
 
 	input := ecs.RunTaskInput{
