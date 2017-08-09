@@ -28,6 +28,7 @@ import (
 	"regexp"
 	"strconv"
 	"os"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 )
 
@@ -133,7 +134,7 @@ func run(sess *session.Session, taskDefinition, cluster, command, container stri
 
 	taskCompletion := <-taskCompletionChan
 	if !taskCompletion.Success {
-		log.Fatalf("Task %s stopped\n", taskId)
+		log.Fatalf("Task %s stopped because:\n\n%s\n", taskId, spew.Sdump(taskCompletion.Output))
 	}
 
 	exitCode := <-logTailDone

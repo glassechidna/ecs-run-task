@@ -1,8 +1,8 @@
-hash: 038dc5e46e58b7c33cfcda66fb34f38bca16b1b58211136cb8bebee09fe4c627
-updated: 2017-06-13T14:01:45.929586587+10:00
+hash: 4ac1e3bddbc0d59f5d52643519c2400f51cc7a413ff9c75f71243e4323d52220
+updated: 2017-08-09T20:03:19.01989294+10:00
 imports:
 - name: github.com/aws/aws-sdk-go
-  version: 0acbed719df7e03681e759ca100f3dcbc9fc28d7
+  version: b405e86e0188df75bd25412af228953f7b736392
   subpackages:
   - aws
   - aws/awserr
@@ -31,6 +31,8 @@ imports:
   - service/cloudwatchlogs
   - service/ecs
   - service/sts
+- name: github.com/davecgh/go-spew
+  version: 346938d642f2ec3594ed81d874461961cd0faa76
 - name: github.com/fsnotify/fsnotify
   version: 4da3e2cfbabc9f751898f250b49f2439785783a1
 - name: github.com/go-ini/ini

@@ -11,3 +11,5 @@ import:
   - service/ecs
 - package: github.com/spf13/cobra
 - package: github.com/spf13/viper
+- package: github.com/davecgh/go-spew
+  version: ^1.1.0
