@@ -28,6 +28,7 @@ import (
 	"regexp"
 	"strconv"
 	"os"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 )
 
 // runCmd represents the run command
@@ -63,6 +64,10 @@ type CloudWatchLogConfig struct {
 	StreamPrefix string
 }
 
+type TaskCompletion struct {
+	Output ecs.Task
+	Success bool
+}
 
 func run(sess *session.Session, taskDefinition, cluster, command, container string) {
 	client := ecs.New(sess)
@@ -87,8 +92,7 @@ func run(sess *session.Session, taskDefinition, cluster, command, container stri
 	output, err := client.RunTask(&input)
 
 	if err != nil {
-		fmt.Println(err.Error())
-		return
+		log.Panicf(err.Error())
 	}
 
 	logConfig, err := cloudWatchConfig(client, taskDefinition, container)
@@ -99,46 +103,48 @@ func run(sess *session.Session, taskDefinition, cluster, command, container stri
 
 	log.Printf("started task id: %s\n", taskId)
 
-	cwClient := cloudwatchlogs.New(sess)
+	taskCompletionChan := make(chan TaskCompletion, 1)
 
-Loop:
-	for {
-		// TODO: also need to poll ecs task for errors, e.g. failure to pull image, essential container stopped, etc
-		
-		time.Sleep(1 * time.Second)
+	go func() {
+		for {
+			// TODO: also need to poll ecs task for errors, e.g. failure to pull image, essential container stopped, etc
 
-		describeTasksOutput, _ := client.DescribeTasks(&ecs.DescribeTasksInput{
-			Tasks: aws.StringSlice([]string{taskId}),
-			Cluster: aws.String(cluster),
-		})
+			time.Sleep(1 * time.Second)
 
-		//out, _ := json.MarshalIndent(describeTasksOutput, "", "  ")
-		//os.Stderr.Write(out)
+			describeTasksOutput, _ := client.DescribeTasks(&ecs.DescribeTasksInput{
+				Tasks: aws.StringSlice([]string{taskId}),
+				Cluster: aws.String(cluster),
+			})
 
-		taskOutput := describeTasksOutput.Tasks[0]
-		container := taskOutput.Containers[0]
+			taskOutput := describeTasksOutput.Tasks[0]
+			container := taskOutput.Containers[0]
 
-		if *taskOutput.LastStatus == "STOPPED" &&
-			*taskOutput.DesiredStatus == "STOPPED" &&
-			container.ExitCode == nil {
-			log.Fatalf("Task %s stopped (%s) because:\n\n\t%s: %s\n", taskId, *taskOutput.StoppedReason, *container.Name, *container.Reason)
-		}
-
-		streamsOutput, _ := cwClient.DescribeLogStreams(&cloudwatchlogs.DescribeLogStreamsInput{
-			LogGroupName: aws.String(logConfig.Group),
-			LogStreamNamePrefix: aws.String(stream),
-		})
-
-		for idx := range streamsOutput.LogStreams {
-			streamThing := streamsOutput.LogStreams[idx]
-			if *streamThing.LogStreamName == stream {
-				break Loop
+			if *taskOutput.LastStatus == "STOPPED" &&
+				*taskOutput.DesiredStatus == "STOPPED" {
+				success := container.ExitCode != nil
+				taskCompletionChan <- TaskCompletion{Output: *taskOutput, Success: success}
+				break
 			}
 		}
+	}()
+
+	logTailDone := make(chan int, 1)
+	go tailLogs(logTailDone, sess, logConfig.Group, stream)
+
+	taskCompletion := <-taskCompletionChan
+	if !taskCompletion.Success {
+		log.Fatalf("Task %s stopped\n", taskId)
 	}
 
+	exitCode := <-logTailDone
+	os.Exit(exitCode)
+}
+
+func tailLogs(done chan int, sess *session.Session, group, stream string) {
+	cwClient := cloudwatchlogs.New(sess)
+
 	cwParams := &cloudwatchlogs.GetLogEventsInput{
-		LogGroupName: aws.String(logConfig.Group),
+		LogGroupName: aws.String(group),
 		LogStreamName: aws.String(stream),
 		StartFromHead: aws.Bool(true),
 	}
@@ -146,7 +152,8 @@ Loop:
 	regex, _ := regexp.Compile("TASK FINISHED, EXITCODE: (\\d+)")
 	exitCode := 0
 
-	cwClient.GetLogEventsPages(cwParams, func(page *cloudwatchlogs.GetLogEventsOutput, lastPage bool) bool {
+Loop:
+	err := cwClient.GetLogEventsPages(cwParams, func(page *cloudwatchlogs.GetLogEventsOutput, lastPage bool) bool {
 		for idx := range page.Events {
 			event := page.Events[idx]
 			match := regex.FindStringSubmatch(*event.Message)
@@ -160,7 +167,19 @@ Loop:
 		return true
 	})
 
-	os.Exit(exitCode)
+	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok {
+			if awsErr.Code() == cloudwatchlogs.ErrCodeResourceNotFoundException {
+				goto Loop
+			} else {
+				log.Panicf(err.Error())
+			}
+		} else {
+			log.Panicf(err.Error())
+		}
+	}
+
+	done <- exitCode
 }
 
 func cloudWatchConfig(client *ecs.ECS, taskDefinition string, containerName string) (*CloudWatchLogConfig, error) {
