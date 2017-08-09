@@ -22,10 +22,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/ecs"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
-	"strings"
 	"time"
 	"log"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+	"regexp"
+	"strconv"
+	"os"
 )
 
 // runCmd represents the run command
@@ -140,10 +142,17 @@ Loop:
 		LogStreamName: aws.String(stream),
 		StartFromHead: aws.Bool(true),
 	}
+
+	regex, _ := regexp.Compile("TASK FINISHED, EXITCODE: (\\d+)")
+	exitCode := 0
+
 	cwClient.GetLogEventsPages(cwParams, func(page *cloudwatchlogs.GetLogEventsOutput, lastPage bool) bool {
 		for idx := range page.Events {
 			event := page.Events[idx]
-			if strings.HasPrefix(*event.Message, "TASK FINISHED, EXITCODE:") {
+			match := regex.FindStringSubmatch(*event.Message)
+			if len(match) > 0 {
+				exitCodeStr := match[1]
+				exitCode, _ = strconv.Atoi(exitCodeStr)
 				return false
 			}
 			fmt.Println(*event.Message)
@@ -151,10 +160,7 @@ Loop:
 		return true
 	})
 
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
+	os.Exit(exitCode)
 }
 
 func cloudWatchConfig(client *ecs.ECS, taskDefinition string, containerName string) (*CloudWatchLogConfig, error) {
