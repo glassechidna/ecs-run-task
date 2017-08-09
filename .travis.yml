@@ -23,7 +23,6 @@ script:
 
 after_success:
   - gox -arch="amd64" -os="windows linux darwin"
-  - ls -lhR
   - upx-3.94-amd64_linux/upx ecs-run-task_*
 
 deploy:
